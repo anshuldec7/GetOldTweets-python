@@ -8,7 +8,7 @@ class TweetManager:
 		pass
 		
 	@staticmethod
-	def getTweets(tweetCriteria, receiveBuffer=None, bufferLength=100, proxy=None):
+	def getTweets(tweetCriteria, receiveBuffer=None, bufferLength=100, proxy='http://proxy.xilinx.com:8080'):
 		refreshCursor = ''
 	
 		results = []
@@ -33,42 +33,53 @@ class TweetManager:
 			
 			for tweetHTML in tweets:
 				tweetPQ = PyQuery(tweetHTML)
-				tweet = models.Tweet()
-				
-				usernameTweet = tweetPQ("span:first.username.u-dir b").text();
-				txt = re.sub(r"\s+", " ", tweetPQ("p.js-tweet-text").text().replace('# ', '#').replace('@ ', '@'));
-				retweets = int(tweetPQ("span.ProfileTweet-action--retweet span.ProfileTweet-actionCount").attr("data-tweet-stat-count").replace(",", ""));
-				favorites = int(tweetPQ("span.ProfileTweet-action--favorite span.ProfileTweet-actionCount").attr("data-tweet-stat-count").replace(",", ""));
-				dateSec = int(tweetPQ("small.time span.js-short-timestamp").attr("data-time"));
-				id = tweetPQ.attr("data-tweet-id");
-				permalink = tweetPQ.attr("data-permalink-path");
-				
-				geo = ''
-				geoSpan = tweetPQ('span.Tweet-geo')
-				if len(geoSpan) > 0:
-					geo = geoSpan.attr('title')
-				
-				tweet.id = id
-				tweet.permalink = 'https://twitter.com' + permalink
-				tweet.username = usernameTweet
-				tweet.text = txt
-				tweet.date = datetime.datetime.fromtimestamp(dateSec)
-				tweet.retweets = retweets
-				tweet.favorites = favorites
-				tweet.mentions = " ".join(re.compile('(@\\w*)').findall(tweet.text))
-				tweet.hashtags = " ".join(re.compile('(#\\w*)').findall(tweet.text))
-				tweet.geo = geo
-				
-				results.append(tweet)
-				resultsAux.append(tweet)
-				
-				if receiveBuffer and len(resultsAux) >= bufferLength:
-					receiveBuffer(resultsAux)
-					resultsAux = []
-				
-				if tweetCriteria.maxTweets > 0 and len(results) >= tweetCriteria.maxTweets:
-					active = False
-					break
+				if tweetPQ is None:
+					continue
+				else:
+					tweet = models.Tweet()
+					usernameTweet = tweetPQ("span:first.username.u-dir b").text();
+					txt = re.sub(r"\s+", " ", tweetPQ("p.js-tweet-text").text().replace('# ', '#').replace('@ ', '@'));
+					if tweetPQ("span.ProfileTweet-action--retweet span.ProfileTweet-actionCount").attr("data-tweet-stat-count") is None:
+						retweets = 0
+					else:
+						retweets = int(tweetPQ("span.ProfileTweet-action--retweet span.ProfileTweet-actionCount").attr("data-tweet-stat-count").replace(",", ""));
+					if tweetPQ("span.ProfileTweet-action--favorite span.ProfileTweet-actionCount").attr("data-tweet-stat-count") is None:
+						favorites = 0;
+					else:
+						favorites = int(tweetPQ("span.ProfileTweet-action--favorite span.ProfileTweet-actionCount").attr("data-tweet-stat-count").replace(",", ""));
+					if tweetPQ("small.time span.js-short-timestamp").attr("data-time") is None:
+						dataSec = 0;
+					else:
+						dateSec = int(tweetPQ("small.time span.js-short-timestamp").attr("data-time"));
+					id = tweetPQ.attr("data-tweet-id");
+					permalink = tweetPQ.attr("data-permalink-path");
+					
+					geo = ''
+					geoSpan = tweetPQ('span.Tweet-geo')
+					if len(geoSpan) > 0:
+						geo = geoSpan.attr('title')
+					
+					tweet.id = id
+					tweet.permalink = 'https://twitter.com' + permalink
+					tweet.username = usernameTweet
+					tweet.text = txt
+					tweet.date = datetime.datetime.fromtimestamp(dateSec)
+					tweet.retweets = retweets
+					tweet.favorites = favorites
+					tweet.mentions = " ".join(re.compile('(@\\w*)').findall(tweet.text))
+					tweet.hashtags = " ".join(re.compile('(#\\w*)').findall(tweet.text))
+					tweet.geo = geo
+					
+					results.append(tweet)
+					resultsAux.append(tweet)
+					
+					if receiveBuffer and len(resultsAux) >= bufferLength:
+						receiveBuffer(resultsAux)
+						resultsAux = []
+					
+					if tweetCriteria.maxTweets > 0 and len(results) >= tweetCriteria.maxTweets:
+						active = False
+						break
 					
 		
 		if receiveBuffer and len(resultsAux) > 0:
